@@ -3,20 +3,20 @@
 lib = File.expand_path('../lib/', __FILE__)
 $:.unshift lib unless $:.include?(lib)
 
-require 'attr_encrypted/version'
+require 'attr_redactor/version'
 require 'date'
 
 Gem::Specification.new do |s|
-  s.name    = 'attr_encrypted'
+  s.name    = 'attr_redactor'
   s.version = AttrEncrypted::Version.string
   s.date    = Date.today
 
-  s.summary     = 'Encrypt and decrypt attributes'
-  s.description = 'Generates attr_accessors that encrypt and decrypt attributes transparently'
+  s.summary     = 'Redact JSON attributes before saving'
+  s.description = 'Generates attr_accessors that redact certain values in the JSON structure before saving.'
 
-  s.authors   = ['Sean Huber', 'S. Brent Faulkner', 'William Monk', 'Stephen Aghaulor']
-  s.email    = ['seah@shuber.io', 'sbfaulkner@gmail.com', 'billy.monk@gmail.com', 'saghaulor@gmail.com']
-  s.homepage = 'http://github.com/attr-encrypted/attr_encrypted'
+  s.authors   = ['Chris Jensen']
+  s.email    = ['chris@broadthought.co']
+  s.homepage = 'http://github.com/chrisjensen/attr_redactor'
 
   s.has_rdoc = false
   s.rdoc_options = ['--line-numbers', '--inline-source', '--main', 'README.rdoc']
@@ -51,13 +51,5 @@ Gem::Specification.new do |s|
   s.add_development_dependency('simplecov')
   s.add_development_dependency('simplecov-rcov')
   s.add_development_dependency("codeclimate-test-reporter")
-
-  s.cert_chain  = ['certs/saghaulor.pem']
-  s.signing_key = File.expand_path("~/.ssh/gem-private_key.pem") if $0 =~ /gem\z/
-
-  s.post_install_message = "\n\n\nWARNING: Several insecure default options and features were deprecated in attr_encrypted v2.0.0.\n
-Additionally, there was a bug in Encryptor v2.0.0 that insecurely encrypted data when using an AES-*-GCM algorithm.\n
-This bug was fixed but introduced breaking changes between v2.x and v3.x.\n
-Please see the README for more information regarding upgrading to attr_encrypted v3.0.0.\n\n\n"
 
 end

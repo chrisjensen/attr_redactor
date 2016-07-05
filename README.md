@@ -1,17 +1,17 @@
-# attr_encrypted
-[![Build Status](https://secure.travis-ci.org/attr-encrypted/attr_encrypted.svg)](https://travis-ci.org/attr-encrypted/attr_encrypted) [![Test Coverage](https://codeclimate.com/github/attr-encrypted/attr_encrypted/badges/coverage.svg)](https://codeclimate.com/github/attr-encrypted/attr_encrypted/coverage) [![Code Climate](https://codeclimate.com/github/attr-encrypted/attr_encrypted/badges/gpa.svg)](https://codeclimate.com/github/attr-encrypted/attr_encrypted) [![Gem Version](https://badge.fury.io/rb/attr_encrypted.svg)](https://badge.fury.io/rb/attr_encrypted) [![security](https://hakiri.io/github/attr-encrypted/attr_encrypted/master.svg)](https://hakiri.io/github/attr-encrypted/attr_encrypted/master)
+# attr_redactor
 
-Generates attr_accessors that transparently encrypt and decrypt attributes.
+Generates attr_accessors that transparently redact a hash attribute by removing, digesting or encrypting certain keys.
 
-It works with ANY class, however, you get a few extra features when you're using it with `ActiveRecord`, `DataMapper`, or `Sequel`.
+This code is based off of the [attr_encrypted/attr_encrypted](https://github.com/attr-encrypted/attr_encrypted) code base.
 
+Helper features for `ActiveRecord`, `DataMapper`, or `Sequel` have been retained, but only `ActiveRecord` has been tested.
 
 ## Installation
 
-Add attr_encrypted to your gemfile:
+Add attr_redactor to your gemfile:
 
 ```ruby
-  gem "attr_encrypted", "~> 3.0.0"
+  gem "attr_redactor"
 ```
 
 Then install the gem:
@@ -22,11 +22,11 @@ Then install the gem:
 
 ## Usage
 
-If you're using an ORM like `ActiveRecord`, `DataMapper`, or `Sequel`, using attr_encrypted is easy:
+If you're using an ORM like `ActiveRecord`, `DataMapper`, or `Sequel`, using attr_redactor is easy:
 
 ```ruby
   class User
-    attr_encrypted :ssn, key: 'This is a key that is 256 bits!!'
+    attr_redactor :user_data, redact: { :ssn => :remove, :email => :encrypt }
   end
 ```
 
@@ -34,28 +34,30 @@ If you're using a PORO, you have to do a little bit more work by extending the c
 
 ```ruby
   class User
-    extend AttrEncrypted
+    extend AttrRedactor
     attr_accessor :name
-    attr_encrypted :ssn, key: 'This is a key that is 256 bits!!'
+    attr_redactor :user_data, redact: { :ssn => :remove, :email => :encrypt }
 
     def load
       # loads the stored data
     end
 
     def save
-      # saves the :name and :encrypted_ssn attributes somewhere (e.g. filesystem, database, etc)
+      # saves the :name and :redacted_user_data attributes somewhere (e.g. filesystem, database, etc)
     end
   end
 
   user = User.new
-  user.ssn = '123-45-6789'
-  user.ssn # returns the unencrypted object ie. '123-45-6789'
-  user.encrypted_ssn # returns the encrypted version of :ssn
+  user.user_data = { ssn: '123-45-6789', email: 'personal@email.com' }
+  user.redacted_data[:email] # returns the encrypted version of :ssn
+  user.redacted_data.has_key?(:ssn) # false
   user.save
 
   user = User.load
-  user.ssn # decrypts :encrypted_ssn and returns '123-45-6789'
+  user.data { email: 'personal@email.com' }
 ```
+
+# FIXME update documentation from here
 
 ### Encrypt/decrypt attribute class methods
 
