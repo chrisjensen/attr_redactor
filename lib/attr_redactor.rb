@@ -1,162 +1,109 @@
-require 'encryptor'
+require 'hash_redactor'
 
-# Adds attr_accessors that encrypt and decrypt an object's attributes
-module AttrEncrypted
-  autoload :Version, 'attr_encrypted/version'
+# Adds attr_accessors that redact an object's attributes
+module AttrRedactor
+  autoload :Version, 'attr_redactor/version'
 
   def self.extended(base) # :nodoc:
     base.class_eval do
       include InstanceMethods
-      attr_writer :attr_encrypted_options
-      @attr_encrypted_options, @encrypted_attributes = {}, {}
+      attr_writer :attr_redactor_options
+      @attr_redactor_options, @redacted_attributes = {}, {}
     end
   end
 
-  # Generates attr_accessors that encrypt and decrypt attributes transparently
+  # Generates attr_accessors that remove, digest or encrypt values in an attribute that is a hash transparently
   #
-  # Options (any other options you specify are passed to the Encryptor's encrypt and decrypt methods)
+  # Options
+  # Any other options you specify are passed on to hash_redactor which is used for
+  # redacting, and in turn onto attr_encrypted which it uses for encryption)
+  #
+  #   redact:	        Hash that describes the values to redact in the hash. Should be a
+  #						map of the form { key => method }, where key is the key to redact
+  #						and method is one of :remove, :digest, :encrypt
+  #						eg {
+  #								:ssn => :remove,
+  #								:email => :digest
+  #								:medical_notes => :encrypt,
+  #						   }
   #
   #   attribute:        The name of the referenced encrypted attribute. For example
-  #                     <tt>attr_accessor :email, attribute: :ee</tt> would generate an
-  #                     attribute named 'ee' to store the encrypted email. This is useful when defining
-  #                     one attribute to encrypt at a time or when the :prefix and :suffix options
-  #                     aren't enough.
+  #                     <tt>attr_accessor :data, attribute: :safe_data</tt> would generate 
+  #                     an attribute named 'safe_data' to store the redacted data.
+  #						This is useful when defining one attribute to encrypt at a time 
+  #						or when the :prefix and :suffix options aren't enough.
   #                     Defaults to nil.
   #
-  #   prefix:           A prefix used to generate the name of the referenced encrypted attributes.
-  #                     For example <tt>attr_accessor :email, prefix: 'crypted_'</tt> would
-  #                     generate attributes named 'crypted_email' to store the encrypted
-  #                     email and password.
-  #                     Defaults to 'encrypted_'.
+  #   prefix:           A prefix used to generate the name of the referenced redacted attributes.
+  #                     For example <tt>attr_accessor :data, prefix: 'safe_'</tt> would
+  #                     generate attributes named 'safe_data' to store the redacted
+  #                     data hash.
+  #                     Defaults to 'redacted_'.
   #
-  #   suffix:           A suffix used to generate the name of the referenced encrypted attributes.
-  #                     For example <tt>attr_accessor :email, prefix: '', suffix: '_encrypted'</tt>
-  #                     would generate attributes named 'email_encrypted' to store the
-  #                     encrypted email.
+  #   suffix:           A suffix used to generate the name of the referenced redacted attributes.
+  #                     For example <tt>attr_accessor :data, prefix: '', suffix: '_cleaned'</tt>
+  #                     would generate attributes named 'data_cleaned' to store the
+  #                     cleaned up data.
   #                     Defaults to ''.
   #
-  #   key:              The encryption key. This option may not be required if
-  #                     you're using a custom encryptor. If you pass a symbol
-  #                     representing an instance method then the :key option
-  #                     will be replaced with the result of the method before
-  #                     being passed to the encryptor. Objects that respond
-  #                     to :call are evaluated as well (including procs).
-  #                     Any other key types will be passed directly to the encryptor.
-  #                     Defaults to nil.
+  #   encryption_key:   The encryption key to use for encrypted fields.
+  #                     Defaults to nil. Required if you are using encryption.
   #
-  #   encode:           If set to true, attributes will be encoded as well as
-  #                     encrypted. This is useful if you're planning on storing
-  #                     the encrypted attributes in a database. The default
-  #                     encoding is 'm' (base64), however this can be overwritten
-  #                     by setting the :encode option to some other encoding
-  #                     string instead of just 'true'. See
-  #                     http://www.ruby-doc.org/core/classes/Array.html#M002245
-  #                     for more encoding directives.
-  #                     Defaults to false unless you're using it with ActiveRecord, DataMapper, or Sequel.
+  #   digest_salt:		The salt to use for digests
+  #						Defaults to ""
   #
-  #   encode_iv:        Defaults to true.
-
-  #   encode_salt:      Defaults to true.
-  #
-  #   default_encoding: Defaults to 'm' (base64).
-  #
-  #   marshal:          If set to true, attributes will be marshaled as well
-  #                     as encrypted. This is useful if you're planning on
-  #                     encrypting something other than a string.
-  #                     Defaults to false.
-  #
-  #   marshaler:        The object to use for marshaling.
-  #                     Defaults to Marshal.
-  #
-  #   dump_method:      The dump method name to call on the <tt>:marshaler</tt> object to.
-  #                     Defaults to 'dump'.
-  #
-  #   load_method:      The load method name to call on the <tt>:marshaler</tt> object.
-  #                     Defaults to 'load'.
-  #
-  #   encryptor:        The object to use for encrypting.
-  #                     Defaults to Encryptor.
-  #
-  #   encrypt_method:   The encrypt method name to call on the <tt>:encryptor</tt> object.
-  #                     Defaults to 'encrypt'.
-  #
-  #   decrypt_method:   The decrypt method name to call on the <tt>:encryptor</tt> object.
-  #                     Defaults to 'decrypt'.
-  #
-  #   if:               Attributes are only encrypted if this option evaluates
-  #                     to true. If you pass a symbol representing an instance
-  #                     method then the result of the method will be evaluated.
-  #                     Any objects that respond to <tt>:call</tt> are evaluated as well.
-  #                     Defaults to true.
-  #
-  #   unless:           Attributes are only encrypted if this option evaluates
-  #                     to false. If you pass a symbol representing an instance
-  #                     method then the result of the method will be evaluated.
-  #                     Any objects that respond to <tt>:call</tt> are evaluated as well.
-  #                     Defaults to false.
-  #
-  #   mode:             Selects encryption mode for attribute: choose <tt>:single_iv_and_salt</tt> for compatibility
-  #                     with the old attr_encrypted API: the IV is derived from the encryption key by the underlying Encryptor class; salt is not used.
-  #                     The <tt>:per_attribute_iv_and_salt</tt> mode uses a per-attribute IV and salt. The salt is used to derive a unique key per attribute.
-  #                     A <tt>:per_attribute_iv</default> mode derives a unique IV per attribute; salt is not used.
-  #                     Defaults to <tt>:per_attribute_iv</tt>.
   #
   # You can specify your own default options
   #
   #   class User
-  #     # Now all attributes will be encoded and marshaled by default
-  #     attr_encrypted_options.merge!(encode: true, marshal: true, some_other_option: true)
-  #     attr_encrypted :configuration, key: 'my secret key'
+  #     attr_redactor_options.merge!(redact: { :ssn => :remove })
+  #     attr_redactor :data
   #   end
   #
   #
   # Example
   #
   #   class User
-  #     attr_encrypted :email, key: 'some secret key'
-  #     attr_encrypted :configuration, key: 'some other secret key', marshal: true
+  #     attr_redactor_options.merge!(encryption_key: 'some secret key')
+  #     attr_redactor :data, redact: {
+  #								:ssn => :remove,
+  #								:email => :digest
+  #								:medical_notes => :encrypt,
+  #						   }
   #   end
   #
   #   @user = User.new
-  #   @user.encrypted_email # nil
-  #   @user.email? # false
-  #   @user.email = 'test@example.com'
-  #   @user.email? # true
-  #   @user.encrypted_email # returns the encrypted version of 'test@example.com'
+  #   @user.redacted_data # nil
+  #   @user.data? # false
+  #   @user.data = { ssn: 'private', email: 'mail@email.com', medical_notes: 'private' }
+  #   @user.data? # true
+  #   @user.redacted_data # { email_digest: 'XXXXXX', encrypted_medical_notes: 'XXXXXX', encrypted_medical_notes_iv: 'XXXXXXX' }
+  #   @user.save!
+  #	  @user = User.last
   #
-  #   @user.configuration = { time_zone: 'UTC' }
-  #   @user.encrypted_configuration # returns the encrypted version of configuration
+  #   @user.data # { email_digest: 'XXXXXX', medical_notes: 'private' }
   #
   #   See README for more examples
-  def attr_encrypted(*attributes)
+  def attr_redactor(*attributes)
     options = attributes.last.is_a?(Hash) ? attributes.pop : {}
-    options = attr_encrypted_default_options.dup.merge!(attr_encrypted_options).merge!(options)
-
-    options[:encode] = options[:default_encoding] if options[:encode] == true
-    options[:encode_iv] = options[:default_encoding] if options[:encode_iv] == true
-    options[:encode_salt] = options[:default_encoding] if options[:encode_salt] == true
+    options = attr_redactor_default_options.dup.merge!(attr_redactor_options).merge!(options)
 
     attributes.each do |attribute|
-      encrypted_attribute_name = (options[:attribute] ? options[:attribute] : [options[:prefix], attribute, options[:suffix]].join).to_sym
+      redacted_attribute_name = (options[:attribute] ? options[:attribute] : [options[:prefix], attribute, options[:suffix]].join).to_sym
 
       instance_methods_as_symbols = attribute_instance_methods_as_symbols
-      attr_reader encrypted_attribute_name unless instance_methods_as_symbols.include?(encrypted_attribute_name)
-      attr_writer encrypted_attribute_name unless instance_methods_as_symbols.include?(:"#{encrypted_attribute_name}=")
+      attr_reader redacted_attribute_name unless instance_methods_as_symbols.include?(redacted_attribute_name)
+      attr_writer redacted_attribute_name unless instance_methods_as_symbols.include?(:"#{redacted_attribute_name}=")
 
-      iv_name = "#{encrypted_attribute_name}_iv".to_sym
-      attr_reader iv_name unless instance_methods_as_symbols.include?(iv_name)
-      attr_writer iv_name unless instance_methods_as_symbols.include?(:"#{iv_name}=")
-
-      salt_name = "#{encrypted_attribute_name}_salt".to_sym
-      attr_reader salt_name unless instance_methods_as_symbols.include?(salt_name)
-      attr_writer salt_name unless instance_methods_as_symbols.include?(:"#{salt_name}=")
+	  # Create a redactor for the attribute
+	  options[:redactor] = HashRedactor::HashRedactor.new(options)
 
       define_method(attribute) do
-        instance_variable_get("@#{attribute}") || instance_variable_set("@#{attribute}", decrypt(attribute, send(encrypted_attribute_name)))
+        instance_variable_get("@#{attribute}") || instance_variable_set("@#{attribute}", unredact(attribute, send(redacted_attribute_name)))
       end
 
       define_method("#{attribute}=") do |value|
-        send("#{encrypted_attribute_name}=", encrypt(attribute, value))
+        send("#{redacted_attribute_name}=", redact(attribute, value))
         instance_variable_set("@#{attribute}", value)
       end
 
@@ -165,132 +112,112 @@ module AttrEncrypted
         value.respond_to?(:empty?) ? !value.empty? : !!value
       end
 
-      encrypted_attributes[attribute.to_sym] = options.merge(attribute: encrypted_attribute_name)
+      redacted_attributes[attribute.to_sym] = options.merge(attribute: redacted_attribute_name)
     end
   end
 
-  alias_method :attr_encryptor, :attr_encrypted
-
-  # Default options to use with calls to <tt>attr_encrypted</tt>
+  # Default options to use with calls to <tt>attr_redactor</tt>
   #
   # It will inherit existing options from its superclass
-  def attr_encrypted_options
-    @attr_encrypted_options ||= superclass.attr_encrypted_options.dup
+  def attr_redactor_options
+    @attr_redactor_options ||= superclass.attr_redactor_options.dup
   end
 
-  def attr_encrypted_default_options
+  def attr_redactor_default_options
     {
-      prefix:            'encrypted_',
+      prefix:            'redacted_',
       suffix:            '',
       if:                true,
       unless:            false,
-      encode:            false,
-      encode_iv:         true,
-      encode_salt:       true,
-      default_encoding:  'm',
       marshal:           false,
       marshaler:         Marshal,
       dump_method:       'dump',
       load_method:       'load',
-      encryptor:         Encryptor,
-      encrypt_method:    'encrypt',
-      decrypt_method:    'decrypt',
       mode:              :per_attribute_iv,
-      algorithm:         'aes-256-gcm',
     }
   end
 
-  private :attr_encrypted_default_options
+  private :attr_redactor_default_options
 
-  # Checks if an attribute is configured with <tt>attr_encrypted</tt>
+  # Checks if an attribute is configured with <tt>attr_redactor</tt>
   #
   # Example
   #
   #   class User
   #     attr_accessor :name
-  #     attr_encrypted :email
+  #     attr_redactor :email
   #   end
   #
-  #   User.attr_encrypted?(:name)  # false
-  #   User.attr_encrypted?(:email) # true
-  def attr_encrypted?(attribute)
-    encrypted_attributes.has_key?(attribute.to_sym)
+  #   User.attr_redacted?(:name)  # false
+  #   User.attr_redacted?(:email) # true
+  def attr_redacted?(attribute)
+    redacted_attributes.has_key?(attribute.to_sym)
   end
 
-  # Decrypts a value for the attribute specified
+  # Decrypts values in the attribute specified
   #
   # Example
   #
   #   class User
-  #     attr_encrypted :email
+  #     attr_redactor :data
   #   end
   #
-  #   email = User.decrypt(:email, 'SOME_ENCRYPTED_EMAIL_STRING')
-  def decrypt(attribute, encrypted_value, options = {})
-    options = encrypted_attributes[attribute.to_sym].merge(options)
-    if options[:if] && !options[:unless] && !encrypted_value.nil? && !(encrypted_value.is_a?(String) && encrypted_value.empty?)
-      encrypted_value = encrypted_value.unpack(options[:encode]).first if options[:encode]
-      value = options[:encryptor].send(options[:decrypt_method], options.merge!(value: encrypted_value))
-      if options[:marshal]
-        value = options[:marshaler].send(options[:load_method], value)
-      elsif defined?(Encoding)
-        encoding = Encoding.default_internal || Encoding.default_external
-        value = value.force_encoding(encoding.name)
-      end
+  #   data = User.redact(:data, SOME_REDACTED_HASH)
+  def unredact(attribute, redacted_value, options = {})
+    options = redacted_attributes[attribute.to_sym].merge(options)
+    if options[:if] && !options[:unless] && !redacted_value.nil?
+      value = options[:redactor].decrypt(redacted_value, options)
       value
     else
-      encrypted_value
+      redacted_value
     end
   end
 
-  # Encrypts a value for the attribute specified
+  # Redacts for the attribute specified
   #
   # Example
   #
   #   class User
-  #     attr_encrypted :email
+  #     attr_redactor :data
   #   end
   #
-  #   encrypted_email = User.encrypt(:email, 'test@example.com')
-  def encrypt(attribute, value, options = {})
-    options = encrypted_attributes[attribute.to_sym].merge(options)
-    if options[:if] && !options[:unless] && !value.nil? && !(value.is_a?(String) && value.empty?)
-      value = options[:marshal] ? options[:marshaler].send(options[:dump_method], value) : value.to_s
-      encrypted_value = options[:encryptor].send(options[:encrypt_method], options.merge!(value: value))
-      encrypted_value = [encrypted_value].pack(options[:encode]) if options[:encode]
-      encrypted_value
+  #   redacted_data = User.redact(:data, { email: 'test@example.com' })
+  def redact(attribute, value, options = {})
+    options = redacted_attributes[attribute.to_sym].merge(options)
+    if options[:if] && !options[:unless] && !value.nil?
+      redacted_value = options[:redactor].redact(value, options)
     else
       value
     end
   end
 
-  # Contains a hash of encrypted attributes with virtual attribute names as keys
+  # Contains a hash of redacted attributes with virtual attribute names as keys
   # and their corresponding options as values
   #
   # Example
   #
   #   class User
-  #     attr_encrypted :email, key: 'my secret key'
+  #     attr_redactor :data, key: 'my secret key'
   #   end
   #
-  #   User.encrypted_attributes # { email: { attribute: 'encrypted_email', key: 'my secret key' } }
-  def encrypted_attributes
-    @encrypted_attributes ||= superclass.encrypted_attributes.dup
+  #   User.redacted_attributes # { data: { attribute: 'redacted_data', encryption_key: 'my secret key' } }
+  def redacted_attributes
+    @redacted_attributes ||= superclass.redacted_attributes.dup
   end
 
-  # Forwards calls to :encrypt_#{attribute} or :decrypt_#{attribute} to the corresponding encrypt or decrypt method
-  # if attribute was configured with attr_encrypted
+  # Forwards calls to :redact_#{attribute} or :unredact_#{attribute} to the corresponding redact or unredact method
+  # if attribute was configured with attr_redactor
   #
   # Example
   #
   #   class User
-  #     attr_encrypted :email, key: 'my secret key'
+  #     attr_redactor :data, key: 'my secret key'
   #   end
   #
-  #   User.encrypt_email('SOME_ENCRYPTED_EMAIL_STRING')
+  #   User.redact_data('SOME_ENCRYPTED_EMAIL_STRING')
   def method_missing(method, *arguments, &block)
-    if method.to_s =~ /^((en|de)crypt)_(.+)$/ && attr_encrypted?($3)
-      send($1, $3, *arguments)
+    if method.to_s =~ /^(redact|unredact)_(.+)$/ && attr_redacted?($2)
+      send($1, $2, *arguments)
     else
       super
     end
@@ -303,7 +230,7 @@ module AttrEncrypted
     #
     #  class User
     #    attr_accessor :secret_key
-    #    attr_encrypted :email, key: :secret_key
+    #    attr_redactor :data, key: :secret_key
     #
     #    def initialize(secret_key)
     #      self.secret_key = secret_key
@@ -311,19 +238,19 @@ module AttrEncrypted
     #  end
     #
     #  @user = User.new('some-secret-key')
-    #  @user.decrypt(:email, 'SOME_ENCRYPTED_EMAIL_STRING')
-    def decrypt(attribute, encrypted_value)
-      encrypted_attributes[attribute.to_sym][:operation] = :decrypting
-      self.class.decrypt(attribute, encrypted_value, evaluated_attr_encrypted_options_for(attribute))
+    #  @user.unredact(:data, SOME_REDACTED_HASH)
+    def unredact(attribute, redacted_value)
+      redacted_attributes[attribute.to_sym][:operation] = :unredacting
+      self.class.unredact(attribute, redacted_value, evaluated_attr_redacted_options_for(attribute))
     end
 
-    # Encrypts a value for the attribute specified using options evaluated in the current object's scope
+    # Redacts a value for the attribute specified using options evaluated in the current object's scope
     #
     # Example
     #
     #  class User
     #    attr_accessor :secret_key
-    #    attr_encrypted :email, key: :secret_key
+    #    attr_redactor :data, key: :secret_key
     #
     #    def initialize(secret_key)
     #      self.secret_key = secret_key
@@ -331,46 +258,38 @@ module AttrEncrypted
     #  end
     #
     #  @user = User.new('some-secret-key')
-    #  @user.encrypt(:email, 'test@example.com')
-    def encrypt(attribute, value)
-      encrypted_attributes[attribute.to_sym][:operation] = :encrypting
-      self.class.encrypt(attribute, value, evaluated_attr_encrypted_options_for(attribute))
+    #  @user.redact(:data, 'test@example.com')
+    def redact(attribute, value)
+      redacted_attributes[attribute.to_sym][:operation] = :redacting
+      self.class.redact(attribute, value, evaluated_attr_redacted_options_for(attribute))
     end
 
-    # Copies the class level hash of encrypted attributes with virtual attribute names as keys
+    # Copies the class level hash of redacted attributes with virtual attribute names as keys
     # and their corresponding options as values to the instance
     #
-    def encrypted_attributes
-      @encrypted_attributes ||= self.class.encrypted_attributes.dup
+    def redacted_attributes
+      @redacted_attributes ||= self.class.redacted_attributes.dup
     end
 
     protected
 
-      # Returns attr_encrypted options evaluated in the current object's scope for the attribute specified
-      def evaluated_attr_encrypted_options_for(attribute)
+      # Returns attr_redactor options evaluated in the current object's scope for the attribute specified
+      def evaluated_attr_redacted_options_for(attribute)
         evaluated_options = Hash.new
-        attribute_option_value = encrypted_attributes[attribute.to_sym][:attribute]
-        encrypted_attributes[attribute.to_sym].map do |option, value|
-          evaluated_options[option] = evaluate_attr_encrypted_option(value)
+        attribute_option_value = redacted_attributes[attribute.to_sym][:attribute]
+        redacted_attributes[attribute.to_sym].map do |option, value|
+          evaluated_options[option] = evaluate_attr_redactor_option(value)
         end
 
         evaluated_options[:attribute] = attribute_option_value
 
-        evaluated_options.tap do |options|
-          unless options[:mode] == :single_iv_and_salt
-            load_iv_for_attribute(attribute, options)
-          end
-
-          if options[:mode] == :per_attribute_iv_and_salt
-            load_salt_for_attribute(attribute, options)
-          end
-        end
+        evaluated_options
       end
 
       # Evaluates symbol (method reference) or proc (responds to call) options
       #
       # If the option is not a symbol or proc then the original option is returned
-      def evaluate_attr_encrypted_option(option)
+      def evaluate_attr_redactor_option(option)
         if option.is_a?(Symbol) && respond_to?(option)
           send(option)
         elsif option.respond_to?(:call)
@@ -378,55 +297,6 @@ module AttrEncrypted
         else
           option
         end
-      end
-
-      def load_iv_for_attribute(attribute, options)
-        encrypted_attribute_name = options[:attribute]
-        encode_iv = options[:encode_iv]
-        iv = options[:iv] || send("#{encrypted_attribute_name}_iv")
-        if options[:operation] == :encrypting
-          begin
-            iv = generate_iv(options[:algorithm])
-            iv = [iv].pack(encode_iv) if encode_iv
-            send("#{encrypted_attribute_name}_iv=", iv)
-          rescue RuntimeError
-          end
-        end
-        if iv && !iv.empty?
-          iv = iv.unpack(encode_iv).first if encode_iv
-          options[:iv] = iv
-        end
-      end
-
-      def generate_iv(algorithm)
-        algo = OpenSSL::Cipher.new(algorithm)
-        algo.encrypt
-        algo.random_iv
-      end
-
-      def load_salt_for_attribute(attribute, options)
-        encrypted_attribute_name = options[:attribute]
-        encode_salt = options[:encode_salt]
-        salt = options[:salt] || send("#{encrypted_attribute_name}_salt")
-        if (salt == nil)
-          salt = SecureRandom.random_bytes
-          salt = prefix_and_encode_salt(salt, encode_salt) if encode_salt
-          send("#{encrypted_attribute_name}_salt=", salt)
-        end
-        if salt && !salt.empty?
-          salt = decode_salt_if_encoded(salt, encode_salt) if encode_salt
-          options[:salt] = salt
-        end
-      end
-
-      def prefix_and_encode_salt(salt, encoding)
-        prefix = '_'
-        prefix + [salt].pack(encoding)
-      end
-
-      def decode_salt_if_encoded(salt, encoding)
-        prefix = '_'
-        salt.slice(0).eql?(prefix) ? salt.slice(1..-1).unpack(encoding).first : salt
       end
   end
 
@@ -439,4 +309,4 @@ module AttrEncrypted
 end
 
 
-Dir[File.join(File.dirname(__FILE__), 'attr_encrypted', 'adapters', '*.rb')].each { |adapter| require adapter }
+Dir[File.join(File.dirname(__FILE__), 'attr_redactor', 'adapters', '*.rb')].each { |adapter| require adapter }
