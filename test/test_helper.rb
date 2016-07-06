@@ -1,19 +1,4 @@
-require 'simplecov'
-require 'simplecov-rcov'
 require "codeclimate-test-reporter"
-
-SimpleCov.formatter = SimpleCov::Formatter::MultiFormatter.new(
-  [
-    SimpleCov::Formatter::HTMLFormatter,
-    SimpleCov::Formatter::RcovFormatter,
-    CodeClimate::TestReporter::Formatter
-  ]
-)
-
-SimpleCov.start do
-  add_filter 'test'
-end
-
 CodeClimate::TestReporter.start
 
 require 'minitest/autorun'
@@ -30,7 +15,7 @@ require 'sequel'
 
 $:.unshift(File.join(File.dirname(__FILE__), '..', 'lib'))
 $:.unshift(File.dirname(__FILE__))
-require 'attr_encrypted'
+require 'attr_redactor'
 
 DB = if defined?(RUBY_ENGINE) && RUBY_ENGINE.to_sym == :jruby
   Sequel.jdbc('jdbc:sqlite::memory:')
