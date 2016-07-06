@@ -8,7 +8,7 @@ require 'date'
 
 Gem::Specification.new do |s|
   s.name    = 'attr_redactor'
-  s.version = AttrEncrypted::Version.string
+  s.version = AttrRedactor::Version.string
   s.date    = Date.today
 
   s.summary     = 'Redact JSON attributes before saving'
