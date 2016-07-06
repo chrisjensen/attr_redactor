@@ -105,6 +105,8 @@ module AttrRedactor
       define_method("#{attribute}=") do |value|
         send("#{redacted_attribute_name}=", redact(attribute, value))
         instance_variable_set("@#{attribute}", value)
+        # replace with redacted/unredacted value immediately
+        instance_variable_set("@#{attribute}", unredact(attribute, send(redacted_attribute_name)))
       end
 
       define_method("#{attribute}?") do
