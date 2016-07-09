@@ -1,22 +1,21 @@
 if defined?(DataMapper)
-  module AttrEncrypted
+  module AttrRedactor
     module Adapters
       module DataMapper
         def self.extended(base) # :nodoc:
           class << base
-            alias_method :included_without_attr_encrypted, :included
-            alias_method :included, :included_with_attr_encrypted
+            alias_method :included_without_attr_redactor, :included
+            alias_method :included, :included_with_attr_redactor
           end
         end
 
-        def included_with_attr_encrypted(base)
-          included_without_attr_encrypted(base)
-          base.extend AttrEncrypted
-          base.attr_encrypted_options[:encode] = true
+        def included_with_attr_redactor(base)
+          included_without_attr_redactor(base)
+          base.extend AttrRedactor
         end
       end
     end
   end
 
-  DataMapper::Resource.extend AttrEncrypted::Adapters::DataMapper
+  DataMapper::Resource.extend AttrRedactor::Adapters::DataMapper
 end
