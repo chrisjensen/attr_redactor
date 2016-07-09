@@ -91,8 +91,12 @@ class ActiveRecordTest < Minitest::Test
     data_to_redact = { :ssn => '12345', :email => 'some@address.com',
     			 :history => 'A big secret' }
 
+    alternate_data = { :ssn => '54321', :email => 'some@address.com',
+    			 :history => 'A really big secret' }
+
     person = Person.create!(data: data_to_redact)
-    assert_equal data_to_redact[:history], person.data[:history]
+    person.data = alternate_data
+    assert_equal person.unredact(:data, person.redact(:data, data_to_redact)), person.data_was
   end
 
   if ::ActiveRecord::VERSION::STRING > "4.0"
