@@ -47,7 +47,9 @@ if defined?(ActiveRecord::Base)
             options.merge! redacted_attributes[attr]
 
             define_method("#{attr}_changed?") do
-              send(attr) != send("#{attr}_was")
+              if send("#{options[:attribute]}_changed?")
+                send(attr) != send("#{attr}_was")
+              end
             end
 
             define_method("#{attr}_was") do

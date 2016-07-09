@@ -86,7 +86,18 @@ class ActiveRecordTest < Minitest::Test
     person.data = nil
     assert person.data_changed?
   end
-
+  
+  def test_changing_hash_should_not_cause_changed
+    # It's misleading to do so as the change won't be saved 
+    data_to_redact = { :ssn => '12345', :email => 'some@address.com',
+    			 :history => 'A big secret' }
+  
+    person = Person.create!(data: data_to_redact)
+    refute person.data_changed?
+    person.data[:email] = 'anew@email.com'
+    refute person.data_changed?
+  end
+  
   def test_should_create_was_predicate
     data_to_redact = { :ssn => '12345', :email => 'some@address.com',
     			 :history => 'A big secret' }
