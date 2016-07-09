@@ -195,14 +195,6 @@ class AttrRedactorTest < Minitest::Test
     assert_equal unredacted_data, @user.data
   end
 
-  def test_should_redact_when_hash_changed
-    @user = User.new
-    @user.data = data_to_redact
-    old_email_digest = @user.redacted_data[:email_digest]
-    @user.data[:email] = 'new_email@example.com'
-    refute_equal @user.redacted_data[:email_digest], old_email_digest
-  end
-
   def test_should_use_options_found_in_the_attr_redactor_options_attribute
     @user = AlternativeClass.new
     
