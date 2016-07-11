@@ -38,7 +38,7 @@ If you're using a PORO, you have to do a little bit more work by extending the c
   class User
     extend AttrRedactor
     attr_accessor :name
-    attr_redactor :user_data, redact: { :ssn => :remove, :email => :encrypt }
+    attr_redactor :user_data, redact: { :ssn => :remove, :email => :encrypt }, encryption_key: 'YOUR ENCRYPTION KEY'
 
     def load
       # loads the stored data
@@ -167,7 +167,17 @@ If you don't like the `redacted_#{attribute}` naming convention then you can spe
   end
 ```
 
-This would generate the following attributes: `secret_data_hidden`.
+This would generate the attribute: `secret_data_hidden`.
+
+### The `:encryption_key` option
+
+Specifies the encryption key to use for encrypted data in the hash.
+This *must* be present if you use encryption.
+
+### The `:digest_salt` option
+
+Specifies a salt to use when digesting.
+If not present then your data will be hashed *without* a salt which makes it less secure.
 
 ### The `:encode`, `:encode_iv`, and `:default_encoding` options
 
@@ -175,7 +185,7 @@ You're probably going to be storing your redacted attributes somehow (e.g. files
 
 ```ruby
   class User
-    attr_redacted :email, key: 'some secret key', encode: true, encode_iv: true
+    attr_redacted :data, encode: true, encode_iv: true
   end
 ```
 
