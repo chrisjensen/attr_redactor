@@ -135,7 +135,6 @@ module AttrRedactor
       marshaler:         Marshal,
       dump_method:       'dump',
       load_method:       'load',
-      mode:              :per_attribute_iv,
     }
   end
 
