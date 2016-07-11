@@ -32,9 +32,9 @@ end
 class Person < ActiveRecord::Base
   self.attr_redactor_options[:encryption_key] = "a very very very long secure, very secure key"
   self.attr_redactor_options[:redact] = {
-	:ssn => :remove,
-	:email => :digest,
-	:history => :encrypt
+	"ssn" => :remove,
+	"email" => :digest,
+	"history" => :encrypt
   }
   
   serialize :redacted_data, Hash
@@ -55,8 +55,8 @@ class ActiveRecordTest < Minitest::Test
   end
 
   def test_should_marshal_and_redact_data
-    @person = Person.create :data => { :ssn => '12345', :email => 'some@address.com',
-    			 :history => 'A big secret' }
+    @person = Person.create :data => { "ssn" => '12345', "email" => 'some@address.com',
+    			 "history" => 'A big secret' }
     refute_nil @person.redacted_data
     refute_equal @person.data, @person.redacted_data
     assert_equal @person.data, Person.first.data
@@ -69,10 +69,10 @@ class ActiveRecordTest < Minitest::Test
   end
 
   def test_should_create_changed_predicate
-    data_to_redact = { :ssn => '12345', :email => 'some@address.com',
-    			 :history => 'A big secret' }
-    alternate_data = { :ssn => '54321', :email => 'some@address.com',
-    			 :history => 'A really big secret' }
+    data_to_redact = { "ssn" => '12345', "email" => 'some@address.com',
+    			 "history" => 'A big secret' }
+    alternate_data = { "ssn" => '54321', "email" => 'some@address.com',
+    			 "history" => 'A really big secret' }
   
     person = Person.create!(data: data_to_redact)
     refute person.data_changed?
@@ -89,21 +89,21 @@ class ActiveRecordTest < Minitest::Test
   
   def test_changing_hash_should_not_cause_changed
     # It's misleading to do so as the change won't be saved 
-    data_to_redact = { :ssn => '12345', :email => 'some@address.com',
-    			 :history => 'A big secret' }
+    data_to_redact = { "ssn" => '12345', "email" => 'some@address.com',
+    			 "history" => 'A big secret' }
   
     person = Person.create!(data: data_to_redact)
     refute person.data_changed?
-    person.data[:email] = 'anew@email.com'
+    person.data["email"] = 'anew@email.com'
     refute person.data_changed?
   end
   
   def test_should_create_was_predicate
-    data_to_redact = { :ssn => '12345', :email => 'some@address.com',
-    			 :history => 'A big secret' }
+    data_to_redact = { "ssn" => '12345', "email" => 'some@address.com',
+    			 "history" => 'A big secret' }
 
-    alternate_data = { :ssn => '54321', :email => 'some@address.com',
-    			 :history => 'A really big secret' }
+    alternate_data = { "ssn" => '54321', "email" => 'some@address.com',
+    			 "history" => 'A really big secret' }
 
     person = Person.create!(data: data_to_redact)
     person.data = alternate_data
@@ -173,15 +173,15 @@ class ActiveRecordTest < Minitest::Test
 
   # See https://github.com/attr-encrypted/attr_encrypted/issues/68
   def test_should_invalidate_virtual_attributes_on_reload
-    old_data = { :history => 'Itself' }
-    new_data = { :history => 'Repeating itself' }
+    old_data = { "history" => 'Itself' }
+    new_data = { "history" => 'Repeating itself' }
     p = Person.create!(data: old_data)
-    assert_equal p.data[:history], old_data[:history]
+    assert_equal p.data["history"], old_data["history"]
     p.data = new_data
-    assert_equal p.data[:history], new_data[:history]
+    assert_equal p.data["history"], new_data["history"]
 
     result = p.reload
     assert_equal p, result
-    assert_equal p.data[:history], old_data[:history]
+    assert_equal p.data["history"], old_data["history"]
   end
 end
