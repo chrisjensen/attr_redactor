@@ -203,6 +203,36 @@ Please also consider where your data leaks. If you're using attr_redacted with R
 #### Metadata regarding your crypto implementation
 It is advisable to also store metadata regarding the circumstances of your encrypted data. Namely, you should store information about the key used to encrypt your data, as well as the algorithm. Having this metadata with every record will make key rotation and migrating to a new algorithm signficantly easier. It will allow you to continue to decrypt old data using the information provided in the metadata and new data can be encrypted using your new key and algorithm of choice.
 
+## Testing
+To verify you've configured redaction properly in your tests, use `attr_redacted?` and `attr_redact_hash`
+
+Given class:
+
+```ruby
+  class User
+    attr_redacted :data, redact: { :ssn => :remove, :email => :encrypt }
+  end
+```
+
+### Minitest
+```ruby
+  def test_should_redact_dataa
+    expected_hash = { :ssn => :remove, :email => :encrypt }
+    assert User.new.attr_redacted?(:data)
+    assert_equal expected_hash, User.new.data_redact_hash
+  end
+```
+
+### RSpec
+```ruby
+  it "should redact data"
+    expect(User.new.attr_redacted?(:data)).to be_truthy
+    expect(User.new.data_redact_hash).to eq({ :ssn => :remove, :email => :encrypt })
+  end
+```
+
+
+
 ## Note on Patches/Pull Requests
 
 * Fork the project.
