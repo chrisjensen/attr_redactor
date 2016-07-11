@@ -124,6 +124,16 @@ class AttrRedactorTest < Minitest::Test
   def test_attr_redacted_should_return_true_for_data
     assert User.attr_redacted?('data')
   end
+  
+  def test_attr_redacted_has_attr_redact_hash_attribute
+    expected_hash = {
+			  :ssn => :remove,
+			  :email => :digest,
+			  :medical_notes => :encrypt
+    		}
+  
+    assert expected_hash, User.new.data_redact_hash
+  end
 
   def test_attr_redacted_should_not_use_the_same_attribute_name_for_two_attributes_in_the_same_line
     refute_equal User.redacted_attributes[:attr1][:attribute], User.redacted_attributes[:attr2][:attribute]

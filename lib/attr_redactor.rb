@@ -114,6 +114,11 @@ module AttrRedactor
         value.respond_to?(:empty?) ? !value.empty? : !!value
       end
 
+      define_method("#{attribute}_redact_hash") do
+	    options = redacted_attributes[attribute]
+      	options[:redact]
+      end
+
       redacted_attributes[attribute.to_sym] = options.merge(attribute: redacted_attribute_name)
     end
   end
