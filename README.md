@@ -1,3 +1,9 @@
+[![Gem Version](https://badge.fury.io/rb/attr_redactor.svg)](https://badge.fury.io/rb/attr_redactor)
+[![Build Status](https://travis-ci.org/chrisjensen/attr_redactor.svg?branch=master)](https://travis-ci.org/chrisjensen/attr_redactor)
+[![Test Coverage](https://codeclimate.com/github/chrisjensen/attr_redactor/badges/coverage.svg)](https://codeclimate.com/github/chrisjensen/attr_redactor/coverage)
+[![Code Climate](https://codeclimate.com/github/chrisjensen/attr_redactor/badges/gpa.svg)](https://codeclimate.com/github/chrisjensen/attr_redactor)
+[![security](https://hakiri.io/github/chrisjensen/attr_redactor/master.svg)](https://hakiri.io/github/chrisjensen/attr_redactor/master)
+
 # attr_redactor
 
 Generates attr_accessors that transparently redact a hash attribute by removing, digesting or encrypting certain keys.
