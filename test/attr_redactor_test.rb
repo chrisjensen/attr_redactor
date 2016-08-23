@@ -63,6 +63,16 @@ class AlternativeClass
   attr_redactor :secret
 end
 
+class Post
+  extend AttrRedactor
+  
+  attr_redactor :post_info, :redact => :redact_hash,
+  					   encryption_key: 'encryption_key is super long and unguessable',
+  					   digest_salt: 'pink himalayan'
+  
+  attr_accessor :redact_hash
+end
+
 class SubClass < AlternativeClass
   attr_redactor :testing
 end
@@ -79,8 +89,6 @@ class AttrRedactorTest < Minitest::Test
   def setup
     @iv = SecureRandom.random_bytes(12)
   end
-  
-  i_suck_and_my_tests_are_order_dependent!
   
   def data_to_redact
     {
@@ -274,5 +282,38 @@ class AttrRedactorTest < Minitest::Test
     @user = User.new
     @user.data = data_to_redact
     assert_equal unredacted_data, @user.data
+  end
+  
+  def test_redact_hash_from_function
+    post_data = { :followers => 'macy, george', :critics => 'Barbados Glum',
+    		:bio => 'A strange, quiet man' }
+
+    redact_hash1 = {
+    	:followers => :remove,
+    	:critics => :encrypt,
+    	:bio => :digest
+    }
+
+    redact_hash2 = {
+    	:followers => :keep,
+    	:critics => :digest,
+    	:bio => :encrypt
+    }
+
+	post = Post.new
+	post.redact_hash = redact_hash1
+	post.post_info = post_data
+	
+	post2 = Post.new
+	post2.redact_hash = redact_hash2
+	post2.post_info = post_data
+
+	refute post.redacted_post_info.has_key? :followers
+	assert post.redacted_post_info.has_key? :encrypted_critics
+	assert post.redacted_post_info.has_key? :bio_digest
+
+	assert post2.redacted_post_info.has_key? :followers
+	assert post2.redacted_post_info.has_key? :critics_digest
+	assert post2.redacted_post_info.has_key? :encrypted_bio
   end
 end

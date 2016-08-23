@@ -90,6 +90,25 @@ To ensure ActiveRecord saves changed data, you should always update the hash ent
   user.user_data[:email] # 'personal@email.com'
 ```
 
+### Using a dynamic redact hash
+The value of redact can be a symbol, lambda or proc. If it's a symbol, that method will be called on the object itself. This allows you to create custom redact hashes on a per record basis.
+
+```
+  class User < ActiveRecord::Base
+    belongs_to :company
+    attr_redactor :user_data, :redact => :redact_hash
+    
+    def redact_hash
+      company.redact_settings
+    end
+  end
+
+  user = User.new user_data: { ssn: '123-45-6789', email: 'personal@email.com' }
+  
+  # What get's redacted in user_data depends on the company settings for that user
+```
+
+
 ### attr_redacted with database persistence
 
 By default, `attr_redacted` stores the redacted data in `:redacted_<attribute>`.
