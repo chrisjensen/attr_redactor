@@ -1,5 +1,8 @@
 # attr_redactor #
 
+##0.2.1 ##
+* Added: Explicit tests and documentation for using proc/lambda/method for redact (@chrisjensen)
+
 ##0.2.0 ##
 * Fixed: Updated hash_redactor dependency for failure on encrypting nil (@chrisjensen)
 
