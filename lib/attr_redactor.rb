@@ -95,8 +95,13 @@ module AttrRedactor
       attr_reader redacted_attribute_name unless instance_methods_as_symbols.include?(redacted_attribute_name)
       attr_writer redacted_attribute_name unless instance_methods_as_symbols.include?(:"#{redacted_attribute_name}=")
 
+	  hash_redactor_options = options.dup
+
+	  # Don't pass the filter mode in, in case it's dynamic
+	  hash_redactor_options.delete :filter_mode
+
 	  # Create a redactor for the attribute
-	  options[:redactor] = HashRedactor::HashRedactor.new(options)
+	  options[:redactor] = HashRedactor::HashRedactor.new(hash_redactor_options)
 
       define_method(attribute) do
         instance_variable_get("@#{attribute}") || instance_variable_set("@#{attribute}", unredact(attribute, send(redacted_attribute_name)))
@@ -283,7 +288,7 @@ module AttrRedactor
       def evaluated_attr_redacted_options_for(attribute)
         evaluated_options = Hash.new
         attribute_option_value = redacted_attributes[attribute.to_sym][:attribute]
-        redacted_attributes[attribute.to_sym].map do |option, value|
+        redacted_attributes[attribute.to_sym].each do |option, value|
           evaluated_options[option] = evaluate_attr_redactor_option(value)
         end
 
