@@ -73,6 +73,29 @@ class Post
   attr_accessor :redact_hash
 end
 
+class DynamicPost
+  extend AttrRedactor
+
+  def self.encryption_key
+   'a completely different key, equally unguessable'
+  end
+  
+  def self.digest_salt
+   'saltier'
+  end
+
+  attr_redactor_options.merge! encryption_key: encryption_key,
+  						digest_salt: digest_salt
+  
+  attr_accessor :mode
+
+  attr_redactor :post_info, :redact => { email: 'keep' }, :filter_mode => :filter_mode
+  
+  def filter_mode
+    mode
+  end
+end
+
 class SubClass < AlternativeClass
   attr_redactor :testing
 end
@@ -282,6 +305,20 @@ class AttrRedactorTest < Minitest::Test
     @user = User.new
     @user.data = data_to_redact
     assert_equal unredacted_data, @user.data
+  end
+  
+  def test_whitelist_from_function
+    @post_whitelist = DynamicPost.new
+    @post_blacklist = DynamicPost.new
+    
+    @post_whitelist.mode = :whitelist
+    @post_blacklist.mode = :blacklist
+
+    @post_whitelist.post_info = data_to_redact
+    @post_blacklist.post_info = data_to_redact
+
+    assert_equal @post_blacklist.post_info, data_to_redact
+    assert_equal @post_whitelist.post_info, { email: data_to_redact[:email] }
   end
   
   def test_redact_hash_from_function
