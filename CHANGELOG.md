@@ -1,5 +1,8 @@
 # attr_redactor #
 
+##0.4.0 ##
+* Added: Allow dynamic filter_mode on a per instance basis (@chrisjensen)
+
 ##0.3.0 ##
 * Changed: Version bump hash_redactor for string values for redact (@chrisjensen)
 
